@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+# Project Tool
+# Author: Arnav Gosain <arn4v@outlook.com>
+# Version: 0.1
+import argparse
+import json
+import os
+import shlex
+import subprocess
+import sys
+from typing import NoReturn
+
+config_path = os.path.join(os.environ["HOME"], ".ptool.conf.json")
+configuration = None
+
+if os.path.isfile(config_path):
+    with open(config_path, "r") as config:
+        configuration = json.load(config)
+        config.close()
+else:
+    sys.exit(f"Config at path: {config_path} doesn't exist")
+
+user_languages = {
+    "languages": [lang["language"] for lang in configuration["languages"]],
+    "aliases": [lang["alias"] for lang in configuration["languages"]],
+}
+
+
+def arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--create", type=str)
+    parser.add_argument("--path", type=str, default=None)
+    parser.add_argument("--lang", type=str, default=None)
+    parser.add_argument("--insert-license", action="store_true")
+    return parser.parse_args()
+
+
+class FileHelper:
+    def __init__(self, path, language):
+        self.path = os.path.realpath(path)
+        self.lang = language
+
+    def append_license(self) -> NoReturn:
+        if (
+            os.path.exists(self.path) == True
+            and os.path.isfile(self.path) == True
+            and os.path.isdir(self.path) != True
+        ):
+            print("Appending license indentifier")
+            with open(self.path, "w") as script:
+                print(script.readlines())
+
+        else:
+            sys.exit(f"{file_path} doesn't exist")
+
+    def create_script(self) -> NoReturn:
+        for language in configuration["languages"]:
+            if self.lang == language["language"] or self.lang == language["alias"]:
+                lang = language["language"]
+                print(lang)
+                with open(self.path, "w") as script:
+                    shebang = f"#!/usr/bin/env {lang}"
+                    script.write(shebang)
+                    script.close()
+                print("Created script skeleton at " + self.path)
+                break
+
+
+class ProjectHelper:
+    def __init__(self, path, language):
+        self.path = os.path.realpath(path)
+        self.lang = language
+
+    def _get_language_commands(self):
+        for lang in configuration["languages"]:
+            if lang["language"] == self.lang or lang["alias"] == self.lang:
+                return lang["commands"]
+
+    def _create_folder(self):
+        os.mkdir(self.path)
+
+    def init_project(self):
+        for language in configuration["languages"]:
+            if self.lang == language["language"] or self.lang == language["alias"]:
+                print("Initiating new project in " + self.path)
+                self._create_folder()
+                for command in self.get_language_commands(language["commands"]):
+                    subprocess.run(shlex.split(command))
+
+
+def main():
+    args = arguments()
+    if len(args.path) > 0 and len(args.lang) > 0:
+        if args.create == "script":
+            new_script = FileHelper(path=args.path, language=args.lang)
+            new_script.create_script()
+        elif args.create == "project":
+            ProjectHelper(path=args.path, language=args.lang).init_project()
+
+        if args.insert_license:
+            FileHelper(path=args.path, language=args.lang).append_license()
+    else:
+        sys.exit("Either --path or --lang not defined")
+
+
+if __name__ == "__main__":
+    main()

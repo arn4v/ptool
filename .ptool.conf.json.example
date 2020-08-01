@@ -1,0 +1,16 @@
+{
+    "projects_path": "/home/arn4v/projs",
+    "languages": [{
+        "language": "javascript",
+        "alias": "js",
+        "commands": ["yarn init -y"]
+    },
+    {
+        "language": "python",
+        "alias": "py",
+        "commands": [
+            "python3 -m virtualenv venv",
+            "./venv/bin/pip install black mypy"
+        ]
+    }]
+}

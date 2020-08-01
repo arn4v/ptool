@@ -71,20 +71,16 @@ class ProjectHelper:
         self.path = os.path.realpath(path)
         self.lang = language
 
-    def _get_language_commands(self):
-        for lang in configuration["languages"]:
-            if lang["language"] == self.lang or lang["alias"] == self.lang:
-                return lang["commands"]
-
-    def _create_folder(self):
+    def __mkdircd(self):
         os.mkdir(self.path)
+        os.chdir(self.path)
 
     def init_project(self):
         for language in configuration["languages"]:
             if self.lang == language["language"] or self.lang == language["alias"]:
                 print("Initiating new project in " + self.path)
-                self._create_folder()
-                for command in self.get_language_commands(language["commands"]):
+                self.__mkdircd()
+                for command in language["commands"]:
                     subprocess.run(shlex.split(command))
 
 

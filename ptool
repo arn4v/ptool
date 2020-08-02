@@ -14,89 +14,87 @@ config_path = os.path.join(os.environ["HOME"], ".ptool.conf.json")
 configuration = None
 
 if os.path.isfile(config_path):
-    with open(config_path, "r") as config:
-        configuration = json.load(config)
-        config.close()
+    configuration = json.load(open(config_path, "r"))
 else:
     sys.exit(f"Config at path: {config_path} doesn't exist")
-
-user_languages = {
-    "languages": [lang["language"] for lang in configuration["languages"]],
-    "aliases": [lang["alias"] for lang in configuration["languages"]],
-}
 
 
 def arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--create", type=str)
-    parser.add_argument("--path", type=str, default=None)
-    parser.add_argument("--lang", type=str, default=None)
-    parser.add_argument("--insert-license", action="store_true")
+    # ptool -c <script/project> <name/path> <lang>
+    parser.add_argument("-c", "--create", type=str, nargs=3)
+    parser.add_argument("-il", "--license", type=str, nargs=2)
     return parser.parse_args()
 
 
-class FileHelper:
+class Helper:
     def __init__(self, path, language):
         self.path = os.path.realpath(path)
         self.lang = language
 
-    def append_license(self) -> NoReturn:
-        if (
-            os.path.exists(self.path) == True
-            and os.path.isfile(self.path) == True
-            and os.path.isdir(self.path) != True
-        ):
-            print("Appending license indentifier")
-            with open(self.path, "w") as script:
-                print(script.readlines())
-
-        else:
-            sys.exit(f"{file_path} doesn't exist")
-
-    def create_script(self) -> NoReturn:
-        for language in configuration["languages"]:
-            if self.lang == language["language"] or self.lang == language["alias"]:
-                lang = language["language"]
-                print(lang)
-                with open(self.path, "w") as script:
-                    shebang = f"#!/usr/bin/env {lang}"
-                    script.write(shebang)
-                    script.close()
-                print("Created script skeleton at " + self.path)
-                break
-
-
-class ProjectHelper:
-    def __init__(self, path, language):
-        self.path = os.path.realpath(path)
-        self.lang = language
-
-    def __mkdircd(self):
+    def __mkdircd(self) -> NoReturn:
         os.mkdir(self.path)
         os.chdir(self.path)
 
-    def init_project(self):
+    def __is_lang_valid(self, type: int):
+        # type 1 is create_script, type 2 is project
         for language in configuration["languages"]:
             if self.lang == language["language"] or self.lang == language["alias"]:
-                print("Initiating new project in " + self.path)
-                self.__mkdircd()
-                for command in language["commands"]:
-                    subprocess.run(shlex.split(command))
+                if type == 1:
+                    return True, language["language"], language["runtime"]
+                elif type == 2:
+                    return True, language["language"], language["commands"]
+
+    def append_license(self) -> NoReturn:
+        if os.path.exists(self.path) == True:
+            if os.path.isfile(self.path) == True and os.path.isdir(self.path) != True:
+                print("Appending license indentifier")
+                with open(self.path, "w") as script:
+                    print(script.readlines())
+            else:
+                sys.exit(self.path + " is a directory, not a file")
+        else:
+            sys.exit(f"{self.path} doesn't exist")
+
+    def init_script(self) -> NoReturn:
+        print("Creating new script")
+        lang_valid, language, runtime = self.__is_lang_valid(type=1)
+        if lang_valid:
+            with open(self.path, "w") as script:
+                shebang = f"#!/usr/bin/env {runtime}"
+                script.write(shebang)
+                script.close()
+            print("Created script skeleton at " + self.path)
+
+    def init_project(self) -> NoReturn:
+        print("Creating new script")
+        lang_valid, language, language_commands = self.__is_lang_valid(type=2)
+        if lang_valid:
+            print("Initiating new project in " + self.path)
+            self.__mkdircd()
+            for command in language_commands:
+                subprocess.run(shlex.split(command))
 
 
 def main():
+    types = ["script", "project"]
     args = arguments()
-    if len(args.path) > 0 and len(args.lang) > 0:
-        if args.create == "script":
-            new_script = FileHelper(path=args.path, language=args.lang)
-            new_script.create_script()
-        elif args.create == "project":
-            ProjectHelper(path=args.path, language=args.lang).init_project()
+    if args.create != None and len(args.create) <= 3:
+        c_type, c_path, c_lang = args.create[0], args.create[1], args.create[2]
+        if args.create[0] in types:
+            if c_type == "script":
+                Helper(path=c_path, language=c_lang).init_script()
+            elif c_type == "project":
+                Helper(path=c_path, language=c_lang).init_project()
 
-        if args.insert_license:
-            FileHelper(path=args.path, language=args.lang).append_license()
+            if args.license:
+                Helper(path=c_path, language=c_lang).append_license()
+        else:
+            sys.exit(f"{args.create[0]} is not a valid type")
     else:
-        sys.exit("Either --path or --lang not defined")
+        sys.exit(
+            "Not enough arguments passed. \n Example usage: ptool --create project hello"
+        )
 
 
 if __name__ == "__main__":

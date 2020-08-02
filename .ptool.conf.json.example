@@ -3,11 +3,13 @@
     "languages": [{
         "language": "javascript",
         "alias": "js",
+        "runtime": "node",
         "commands": ["yarn init -y"]
     },
     {
         "language": "python",
         "alias": "py",
+        "runtime": "python3",
         "commands": [
             "python3 -m virtualenv venv",
             "./venv/bin/pip install black mypy"

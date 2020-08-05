@@ -2,15 +2,20 @@
 # Project Tool
 # Author: Arnav Gosain <arn4v@outlook.com>
 # Version: 0.1
+from typing import NoReturn
 import argparse
 import json
 import os
+import platform
 import shlex
 import subprocess
 import sys
-from typing import NoReturn
 
-config_path = os.path.join(os.environ["HOME"], ".ptool.conf.json")
+config_dir = os.path.join(
+    os.environ["HOME"],
+    "AppData\\Local\\ptool" if platform.system() == "Windows" else ".config/ptool",
+)
+config_path = os.path.join(config_dir, "ptool.config.json")
 configuration = None
 
 if os.path.isfile(config_path):
@@ -93,7 +98,7 @@ def main():
             sys.exit(f"{args.create[0]} is not a valid type")
     else:
         sys.exit(
-            "Not enough arguments passed. \n Example usage: ptool --create project hello"
+            "Not enough arguments passed.\nExample usage: ptool --create project hello"
         )
 
 

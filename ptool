@@ -11,59 +11,61 @@ import shlex
 import subprocess
 import sys
 
-config_dir = os.path.join(
-    os.environ["HOME"],
-    "AppData\\Local\\ptool" if platform.system() == "Windows" else ".config/ptool",
+
+parser = argparse.ArgumentParser()
+# ptool -c <script/project> <name/path> <lang>
+parser.add_argument("-c", "--create", metavar="N", nargs=3)
+parser.add_argument("-al", "--append-license", type=str, nargs=1)
+parser.add_argument("-aw", "--add-workflow", action="store_true")
+parser.add_argument(
+    "-dw", "--delete-workflow", default=None, type=str, metavar="<workflow_name>"
 )
-config_path = os.path.join(config_dir, "ptool.config.json")
-configuration = None
-
-if os.path.isfile(config_path):
-    configuration = json.load(open(config_path, "r"))
-else:
-    sys.exit(f"Config at path: {config_path} doesn't exist")
-
-
-def arguments():
-    parser = argparse.ArgumentParser()
-    # ptool -c <script/project> <name/path> <lang>
-    parser.add_argument("-c", "--create", type=str, nargs=3)
-    parser.add_argument("-il", "--license", type=str, nargs=2)
-    return parser.parse_args()
+parser.add_argument("-lw", "--list-workflows", action="store_true")
 
 
 class Helper:
-    def __init__(self, path, language):
-        self.path = os.path.realpath(path)
+    def __init__(self, path: str, language: str, config: dict):
+        self.path = os.path.abspath(path)
         self.lang = language
 
-    def __mkdircd(self) -> NoReturn:
+        self.config_dir = os.path.join(
+            os.environ["HOME"],
+            "AppData\\Local\\ptool"
+            if platform.system() == "Windows"
+            else ".config/ptool",
+        )
+        self.config_fpath = os.path.join(self.config_dir, "ptool.config.json")
+
+        if not os.path.exists(self.config_dir):
+            os.mkdir(self.config_dir)
+
+        if not os.path.exists(self.config_fpath):
+            with open(self.config_fpath, "w") as conf:
+                conf.write(json.dumps({"workflows": ""}, indent=4))
+
+        self.configuration = json.load(open(self.config_fpath, "r"))
+
+    def __mkdircd__(self) -> NoReturn:
         os.mkdir(self.path)
         os.chdir(self.path)
 
-    def __is_lang_valid(self, type: int):
+    def __isvalid__(self, type: int):
+        configuration = self.configuration
         # type 1 is create_script, type 2 is project
-        for language in configuration["languages"]:
-            if self.lang == language["language"] or self.lang == language["alias"]:
+        for workflow in configuration["workflows"]:
+            if self.lang == workflow["name"] or self.lang == workflow["alias"]:
                 if type == 1:
-                    return True, language["language"], language["runtime"]
+                    return True, workflow["name"], workflow["runtime"]
                 elif type == 2:
-                    return True, language["language"], language["commands"]
+                    return True, workflow["name"], workflow["commands"]
 
-    def append_license(self) -> NoReturn:
-        if os.path.exists(self.path) == True:
-            if os.path.isfile(self.path) == True and os.path.isdir(self.path) != True:
-                print("Appending license indentifier")
-                with open(self.path, "w") as script:
-                    print(script.readlines())
-            else:
-                sys.exit(self.path + " is a directory, not a file")
-        else:
-            sys.exit(f"{self.path} doesn't exist")
+    def __write_config__(self, new_config: dict):
+        with open(self.config_fpath, "w") as conf:
+            conf.write(json.dumps(new_config, indent=4))
 
     def init_script(self) -> NoReturn:
         print("Creating new script")
-        lang_valid, language, runtime = self.__is_lang_valid(type=1)
+        lang_valid, language, runtime = self.__isvalid__(type=1)
         if lang_valid:
             with open(self.path, "w") as script:
                 shebang = f"#!/usr/bin/env {runtime}"
@@ -73,33 +75,77 @@ class Helper:
 
     def init_project(self) -> NoReturn:
         print("Creating new script")
-        lang_valid, language, language_commands = self.__is_lang_valid(type=2)
+        lang_valid, language, language_commands = self.__isvalid__(type=2)
         if lang_valid:
             print("Initiating new project in " + self.path)
-            self.__mkdircd()
+            self.__mkdircd__()
             for command in language_commands:
                 subprocess.run(shlex.split(command))
+
+    def list_workflows(self):
+        for workflow in self.configuration["workflows"]:
+            print(workflow["name"])
+
+    def add_workflow(self):
+        conf = self.configuration
+        workflows = conf["workflows"]
+        workflow_name = input("Enter workflow name: ")
+        workflow_alias = input("Alias workflow an alias (Leave it empty if not): ")
+        workflow_commands = list()
+        while True:
+            command = input("Enter new command (Leave empty to exit): ")
+            if len(command) >= 1:
+                workflow_commands.append(command)
+            else:
+                break
+        workflows.append(
+            {
+                "name": workflow_name,
+                "alias": workflow_alias,
+                "commands": workflow_commands,
+            }
+        )
+        conf["workflows"] = workflows
+        self.__write_config__(new_config=conf)
+
+    def delete_workflow(self, name: str):
+        conf = self.configuration
+        workflows = conf["workflows"]
+        names = [wf["name"] for wf in workflows]
+        if name in names:
+            workflows.pop(names.index(name))
+        else:
+            print(
+                name + " not a valid workflow. Run ptool -lw to see existing workflows."
+            )
+        conf["workflows"] = workflows
+        self.__write_config__(new_config=conf)
 
 
 def main():
     types = ["script", "project"]
-    args = arguments()
+    args = parser.parse_args()
+    config_helper_instance = ConfigHelper()
+    config = ConfigHelper().read_config()
     if args.create != None and len(args.create) <= 3:
         c_type, c_path, c_lang = args.create[0], args.create[1], args.create[2]
         if args.create[0] in types:
+            helper_instance = Helper(path=c_path, language=c_lang, config=config)
             if c_type == "script":
-                Helper(path=c_path, language=c_lang).init_script()
+                helper_instance.init_script()
             elif c_type == "project":
-                Helper(path=c_path, language=c_lang).init_project()
-
-            if args.license:
-                Helper(path=c_path, language=c_lang).append_license()
+                helper_instance.init_project()
         else:
-            sys.exit(f"{args.create[0]} is not a valid type")
-    else:
-        sys.exit(
-            "Not enough arguments passed.\nExample usage: ptool --create project hello"
-        )
+            sys.exit(args.create[0] + " is not a valid type")
+    elif args.list_workflows:
+        config_helper_instance.list_workflows()
+    elif args.add_workflow:
+        config_helper_instance.add_workflow()
+    elif args.delete_workflow != None and len(args.delete_workflow) >= 1:
+        config_helper_instance.delete_workflow(args.delete_workflow)
+    elif len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

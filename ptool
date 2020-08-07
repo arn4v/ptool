@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 # Project Tool
 # Author: Arnav Gosain <arn4v@outlook.com>
 # Version: 0.1
@@ -23,126 +24,139 @@ parser.add_argument(
 parser.add_argument("-lw", "--list-workflows", action="store_true")
 
 
-class Helper:
-    def __init__(self):
-        self.config_dir = os.path.join(
-            os.environ["HOME"],
-            "AppData\\Local\\ptool"
-            if platform.system() == "Windows"
-            else ".config/ptool",
-        )
-        self.config_fpath = os.path.join(self.config_dir, "ptool.config.json")
+config_dir = os.path.join(
+    os.environ["HOME"],
+    "AppData\\Local\\ptool" if platform.system() == "Windows" else ".config/ptool",
+)
+config_fpath = os.path.join(config_dir, "ptool.config.json")
 
-        if not os.path.exists(self.config_dir):
-            os.mkdir(self.config_dir)
+if not os.path.exists(config_dir):
+    os.mkdir(config_dir)
 
-        if not os.path.exists(self.config_fpath):
-            with open(self.config_fpath, "w") as conf:
-                conf.write(json.dumps({"workflows": ""}, indent=4))
+if not os.path.exists(config_fpath):
+    with open(config_fpath, "w") as conf:
+        conf.write(json.dumps({"workflows": ""}, indent=4))
 
-        self.configuration = json.load(open(self.config_fpath, "r"))
+configuration = json.load(open(config_fpath, "r"))
 
-    def __mkdircd__(self, path: str) -> NoReturn:
+
+def mkdircd(path: str) -> NoReturn:
+    if not os.path.exists(path):
         os.mkdir(path)
         os.chdir(path)
+    else:
+        sys.exit(path + " already exists.")
 
-    def __write_config__(self, new_config: dict):
-        with open(self.config_fpath, "w") as conf:
-            conf.write(json.dumps(new_config, indent=4))
 
-    def list_workflows(self):
-        for workflow in self.configuration["workflows"]:
-            print(workflow["name"])
+def write_config(new_config: dict):
+    with open(config_fpath, "w") as conf:
+        conf.write(json.dumps(new_config, indent=4))
 
-    def add_workflow(self):
-        conf = self.configuration
-        workflows = conf["workflows"]
-        workflow_name = input("Enter workflow name: ")
-        workflow_alias = input("Alias workflow an alias (Leave it empty if not): ")
-        workflow_extends = input(
-            "Does this workflow extend a pre-existing workflow? (Leave it empty if not): "
-        )
-        workflow_commands = list()
-        while True:
-            command = input("Enter new command (Leave empty to exit): ")
-            if len(command) >= 1:
-                workflow_commands.append(command)
-            else:
-                break
-        workflows.append(
-            {
-                "name": workflow_name,
-                "alias": workflow_alias,
-                "extends": workflow_extends,
-                "commands": workflow_commands,
-            }
-        )
-        conf["workflows"] = workflows
-        self.__write_config__(new_config=conf)
 
-    def delete_workflow(self, name: str):
-        conf = self.configuration
-        workflows = conf["workflows"]
-        names = [wf["name"] for wf in workflows]
-        if name in names:
-            workflows.pop(names.index(name))
+def list_workflows():
+    for workflow in configuration["workflows"]:
+        print(workflow["name"])
+
+
+def add_workflow():
+    conf = configuration
+    workflows = conf["workflows"]
+    workflow_name = input("Enter workflow name: ")
+    workflow_alias = input("Alias workflow an alias (Leave it empty if not): ")
+    workflow_extends = input(
+        "Does this workflow extend a pre-existing workflow? (Leave it empty if not): "
+    )
+    workflow_commands = list()
+    while True:
+        command = input("Enter new command (Leave empty to exit): ")
+        if len(command) >= 1:
+            workflow_commands.append(command)
         else:
-            print(
-                name + " not a valid workflow. Run ptool -lw to see existing workflows."
+            break
+    workflows.append(
+        {
+            "name": workflow_name,
+            "alias": workflow_alias,
+            "extends": workflow_extends,
+            "commands": workflow_commands,
+        }
+    )
+    conf["workflows"] = workflows
+    write_config(new_config=conf)
+
+
+def delete_workflow(name: str):
+    conf = configuration
+    workflows = conf["workflows"]
+    names = [wf["name"] for wf in workflows]
+    if name in names:
+        workflows.pop(names.index(name))
+    else:
+        print(name + " not a valid workflow. Run ptool -lw to see existing workflows.")
+    conf["workflows"] = workflows
+    write_config(new_config=conf)
+
+
+def init_script(path: str, runtime: str) -> NoReturn:
+    path = os.path.abspath(path)
+    with open(path, "w") as script:
+        shebang = f"#!/usr/bin/env {runtime}"
+        script.write(shebang)
+        script.close()
+    print("Created script skeleton at " + path)
+
+
+def init_project(path: str, workflow: str) -> NoReturn:
+    path = os.path.abspath(path)
+    names = [wf["name"] for wf in configuration["workflows"]]
+
+    mkdircd(path)
+    if workflow in names:
+        wf = configuration["workflows"][names.index(workflow)]
+        print("Initiating new project in " + path)
+        try:
+            if wf["extends"] in names:
+                print("Running " + wf["extends"] + " commands!")
+                for command in configuration["workflows"][names.index(wf["extends"])][
+                    "commands"
+                ]:
+                    subprocess.run(
+                        shlex.split(command),
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                    )
+
+        except:
+            pass
+
+        print("Running " + wf["name"] + " commands!")
+        for command in wf["commands"]:
+            subprocess.run(
+                shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
-        conf["workflows"] = workflows
-        self.__write_config__(new_config=conf)
-
-    def init_script(self, path: str, runtime: str) -> NoReturn:
-        path = os.path.abspath(path)
-        with open(self.path, "w") as script:
-            shebang = f"#!/usr/bin/env {runtime}"
-            script.write(shebang)
-            script.close()
-        print("Created script skeleton at " + self.path)
-
-    def init_project(self, path: str, workflow: str) -> NoReturn:
-        path = os.path.abspath(path)
-        configuration = self.configuration
-        names = [wf["name"] for wf in configuration["workflows"]]
-
-        self.__mkdircd__(path)
-        if workflow in names:
-            wf = configuration["workflows"][names.index(workflow)]
-            try:
-                if wf["extends"] in names:
-                    for command in configuration["workflows"][
-                        names.index(wf["extends"])
-                    ]["commands"]:
-                        subprocess.run(shlex.split(command))
-            except:
-                pass
-
-            print("Initiating new project in " + path)
-            for command in wf["commands"]:
-                subprocess.run(shlex.split(command))
+        
+        print('Done 🎉')
 
 
 def main():
     args = parser.parse_args()
-    helper_instance = Helper()
     if args.create != None and len(args.create) <= 3:
         if args.create[0] == "script":
-            helper_instance.init_script(path=args.create[2], runtime=args.create[1])
+            init_script(path=args.create[2], runtime=args.create[1])
         elif args.create[0] == "project":
-            helper_instance.init_project(path=args.create[2], workflow=args.create[1])
+            init_project(path=args.create[2], workflow=args.create[1])
         else:
             sys.exit(
                 args.create[0] + "is not a valid type. Valid types: project, script"
             )
     elif args.append_license:
-        helper_instance.list_workflows()
+        list_workflows()
     elif args.list_workflows:
-        helper_instance.list_workflows()
+        list_workflows()
     elif args.add_workflow:
-        helper_instance.add_workflow()
+        add_workflow()
     elif args.delete_workflow != None and len(args.delete_workflow) >= 1:
-        helper_instance.delete_workflow(args.delete_workflow)
+        delete_workflow(args.delete_workflow)
     elif len(sys.argv) == 1:
         parser.print_help(sys.stderr)
         sys.exit(1)

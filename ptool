@@ -50,26 +50,6 @@ class Helper:
         with open(self.config_fpath, "w") as conf:
             conf.write(json.dumps(new_config, indent=4))
 
-    def init_script(self, path: str, runtime: str) -> NoReturn:
-        path = os.path.abspath(path)
-        print("Creating new script")
-        with open(self.path, "w") as script:
-            shebang = f"#!/usr/bin/env {runtime}"
-            script.write(shebang)
-            script.close()
-        print("Created script skeleton at " + self.path)
-
-    def init_project(self, path: str, workflow: str) -> NoReturn:
-        print("Creating new script")
-        configuration = self.configuration
-        # type 1 is create_script, type 2 is project
-        for workflow in configuration["workflows"]:
-            if workflow == workflow["name"] or workflow == workflow["alias"]:
-                print("Initiating new project in " + self.path)
-                self.__mkdircd__(path)
-                for command in workflow["commands"]:
-                    subprocess.run(shlex.split(command))
-
     def list_workflows(self):
         for workflow in self.configuration["workflows"]:
             print(workflow["name"])
@@ -79,6 +59,9 @@ class Helper:
         workflows = conf["workflows"]
         workflow_name = input("Enter workflow name: ")
         workflow_alias = input("Alias workflow an alias (Leave it empty if not): ")
+        workflow_extends = input(
+            "Does this workflow extend a pre-existing workflow? (Leave it empty if not): "
+        )
         workflow_commands = list()
         while True:
             command = input("Enter new command (Leave empty to exit): ")
@@ -90,6 +73,7 @@ class Helper:
             {
                 "name": workflow_name,
                 "alias": workflow_alias,
+                "extends": workflow_extends,
                 "commands": workflow_commands,
             }
         )
@@ -109,21 +93,48 @@ class Helper:
         conf["workflows"] = workflows
         self.__write_config__(new_config=conf)
 
+    def init_script(self, path: str, runtime: str) -> NoReturn:
+        path = os.path.abspath(path)
+        with open(self.path, "w") as script:
+            shebang = f"#!/usr/bin/env {runtime}"
+            script.write(shebang)
+            script.close()
+        print("Created script skeleton at " + self.path)
+
+    def init_project(self, path: str, workflow: str) -> NoReturn:
+        path = os.path.abspath(path)
+        configuration = self.configuration
+        names = [wf["name"] for wf in configuration["workflows"]]
+
+        self.__mkdircd__(path)
+        if workflow in names:
+            wf = configuration["workflows"][names.index(workflow)]
+            try:
+                if wf["extends"] in names:
+                    for command in configuration["workflows"][
+                        names.index(wf["extends"])
+                    ]["commands"]:
+                        subprocess.run(shlex.split(command))
+            except:
+                pass
+
+            print("Initiating new project in " + path)
+            for command in wf["commands"]:
+                subprocess.run(shlex.split(command))
+
 
 def main():
-    types = ["script", "project"]
     args = parser.parse_args()
     helper_instance = Helper()
     if args.create != None and len(args.create) <= 3:
-        if args.create[0] in types:
-            if args.create[0] == "script":
-                helper_instance.init_script(path=args.create[1], runtime=args.create[2])
-            elif args.create[0] == "project":
-                helper_instance.init_project(
-                    path=args.create[1], runtime=args.create[2]
-                )
+        if args.create[0] == "script":
+            helper_instance.init_script(path=args.create[2], runtime=args.create[1])
+        elif args.create[0] == "project":
+            helper_instance.init_project(path=args.create[2], workflow=args.create[1])
         else:
-            sys.exit(args.create[0] + " is not a valid type")
+            sys.exit(
+                args.create[0] + "is not a valid type. Valid types: project, script"
+            )
     elif args.append_license:
         helper_instance.list_workflows()
     elif args.list_workflows:

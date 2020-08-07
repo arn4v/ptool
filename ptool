@@ -24,10 +24,7 @@ parser.add_argument("-lw", "--list-workflows", action="store_true")
 
 
 class Helper:
-    def __init__(self, path: str, language: str, config: dict):
-        self.path = os.path.abspath(path)
-        self.lang = language
-
+    def __init__(self):
         self.config_dir = os.path.join(
             os.environ["HOME"],
             "AppData\\Local\\ptool"
@@ -45,42 +42,33 @@ class Helper:
 
         self.configuration = json.load(open(self.config_fpath, "r"))
 
-    def __mkdircd__(self) -> NoReturn:
-        os.mkdir(self.path)
-        os.chdir(self.path)
-
-    def __isvalid__(self, type: int):
-        configuration = self.configuration
-        # type 1 is create_script, type 2 is project
-        for workflow in configuration["workflows"]:
-            if self.lang == workflow["name"] or self.lang == workflow["alias"]:
-                if type == 1:
-                    return True, workflow["name"], workflow["runtime"]
-                elif type == 2:
-                    return True, workflow["name"], workflow["commands"]
+    def __mkdircd__(self, path: str) -> NoReturn:
+        os.mkdir(path)
+        os.chdir(path)
 
     def __write_config__(self, new_config: dict):
         with open(self.config_fpath, "w") as conf:
             conf.write(json.dumps(new_config, indent=4))
 
-    def init_script(self) -> NoReturn:
+    def init_script(self, path: str, runtime: str) -> NoReturn:
+        path = os.path.abspath(path)
         print("Creating new script")
-        lang_valid, language, runtime = self.__isvalid__(type=1)
-        if lang_valid:
-            with open(self.path, "w") as script:
-                shebang = f"#!/usr/bin/env {runtime}"
-                script.write(shebang)
-                script.close()
-            print("Created script skeleton at " + self.path)
+        with open(self.path, "w") as script:
+            shebang = f"#!/usr/bin/env {runtime}"
+            script.write(shebang)
+            script.close()
+        print("Created script skeleton at " + self.path)
 
-    def init_project(self) -> NoReturn:
+    def init_project(self, path: str, workflow: str) -> NoReturn:
         print("Creating new script")
-        lang_valid, language, language_commands = self.__isvalid__(type=2)
-        if lang_valid:
-            print("Initiating new project in " + self.path)
-            self.__mkdircd__()
-            for command in language_commands:
-                subprocess.run(shlex.split(command))
+        configuration = self.configuration
+        # type 1 is create_script, type 2 is project
+        for workflow in configuration["workflows"]:
+            if workflow == workflow["name"] or workflow == workflow["alias"]:
+                print("Initiating new project in " + self.path)
+                self.__mkdircd__(path)
+                for command in workflow["commands"]:
+                    subprocess.run(shlex.split(command))
 
     def list_workflows(self):
         for workflow in self.configuration["workflows"]:
@@ -125,24 +113,25 @@ class Helper:
 def main():
     types = ["script", "project"]
     args = parser.parse_args()
-    config_helper_instance = ConfigHelper()
-    config = ConfigHelper().read_config()
+    helper_instance = Helper()
     if args.create != None and len(args.create) <= 3:
-        c_type, c_path, c_lang = args.create[0], args.create[1], args.create[2]
         if args.create[0] in types:
-            helper_instance = Helper(path=c_path, language=c_lang, config=config)
-            if c_type == "script":
-                helper_instance.init_script()
-            elif c_type == "project":
-                helper_instance.init_project()
+            if args.create[0] == "script":
+                helper_instance.init_script(path=args.create[1], runtime=args.create[2])
+            elif args.create[0] == "project":
+                helper_instance.init_project(
+                    path=args.create[1], runtime=args.create[2]
+                )
         else:
             sys.exit(args.create[0] + " is not a valid type")
+    elif args.append_license:
+        helper_instance.list_workflows()
     elif args.list_workflows:
-        config_helper_instance.list_workflows()
+        helper_instance.list_workflows()
     elif args.add_workflow:
-        config_helper_instance.add_workflow()
+        helper_instance.add_workflow()
     elif args.delete_workflow != None and len(args.delete_workflow) >= 1:
-        config_helper_instance.delete_workflow(args.delete_workflow)
+        helper_instance.delete_workflow(args.delete_workflow)
     elif len(sys.argv) == 1:
         parser.print_help(sys.stderr)
         sys.exit(1)

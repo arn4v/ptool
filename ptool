@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 # Project Tool
 # Author: Arnav Gosain <arn4v@outlook.com>
 # Version: 0.1
@@ -11,95 +12,154 @@ import shlex
 import subprocess
 import sys
 
+
+parser = argparse.ArgumentParser()
+# ptool -c <script/project> <name/path> <lang>
+parser.add_argument("-c", "--create", metavar="N", nargs=3)
+parser.add_argument("-al", "--append-license", type=str, nargs=1)
+parser.add_argument("-aw", "--add-workflow", action="store_true")
+parser.add_argument(
+    "-dw", "--delete-workflow", default=None, type=str, metavar="<workflow_name>"
+)
+parser.add_argument("-lw", "--list-workflows", action="store_true")
+
+
 config_dir = os.path.join(
     os.environ["HOME"],
     "AppData\\Local\\ptool" if platform.system() == "Windows" else ".config/ptool",
 )
-config_path = os.path.join(config_dir, "ptool.config.json")
-configuration = None
+config_fpath = os.path.join(config_dir, "ptool.config.json")
 
-if os.path.isfile(config_path):
-    configuration = json.load(open(config_path, "r"))
-else:
-    sys.exit(f"Config at path: {config_path} doesn't exist")
+if not os.path.exists(config_dir):
+    os.mkdir(config_dir)
 
+if not os.path.exists(config_fpath):
+    with open(config_fpath, "w") as conf:
+        conf.write(json.dumps({"workflows": ""}, indent=4))
 
-def arguments():
-    parser = argparse.ArgumentParser()
-    # ptool -c <script/project> <name/path> <lang>
-    parser.add_argument("-c", "--create", type=str, nargs=3)
-    parser.add_argument("-il", "--license", type=str, nargs=2)
-    return parser.parse_args()
+configuration = json.load(open(config_fpath, "r"))
 
 
-class Helper:
-    def __init__(self, path, language):
-        self.path = os.path.realpath(path)
-        self.lang = language
+def mkdircd(path: str) -> NoReturn:
+    if not os.path.exists(path):
+        os.mkdir(path)
+        os.chdir(path)
+    else:
+        sys.exit(path + " already exists.")
 
-    def __mkdircd(self) -> NoReturn:
-        os.mkdir(self.path)
-        os.chdir(self.path)
 
-    def __is_lang_valid(self, type: int):
-        # type 1 is create_script, type 2 is project
-        for language in configuration["languages"]:
-            if self.lang == language["language"] or self.lang == language["alias"]:
-                if type == 1:
-                    return True, language["language"], language["runtime"]
-                elif type == 2:
-                    return True, language["language"], language["commands"]
+def write_config(new_config: dict):
+    with open(config_fpath, "w") as conf:
+        conf.write(json.dumps(new_config, indent=4))
 
-    def append_license(self) -> NoReturn:
-        if os.path.exists(self.path) == True:
-            if os.path.isfile(self.path) == True and os.path.isdir(self.path) != True:
-                print("Appending license indentifier")
-                with open(self.path, "w") as script:
-                    print(script.readlines())
-            else:
-                sys.exit(self.path + " is a directory, not a file")
+
+def list_workflows():
+    for workflow in configuration["workflows"]:
+        print(workflow["name"])
+
+
+def add_workflow():
+    conf = configuration
+    workflows = conf["workflows"]
+    workflow_name = input("Enter workflow name: ")
+    workflow_alias = input("Alias workflow an alias (Leave it empty if not): ")
+    workflow_extends = input(
+        "Does this workflow extend a pre-existing workflow? (Leave it empty if not): "
+    )
+    workflow_commands = list()
+    while True:
+        command = input("Enter new command (Leave empty to exit): ")
+        if len(command) >= 1:
+            workflow_commands.append(command)
         else:
-            sys.exit(f"{self.path} doesn't exist")
+            break
+    workflows.append(
+        {
+            "name": workflow_name,
+            "alias": workflow_alias,
+            "extends": workflow_extends,
+            "commands": workflow_commands,
+        }
+    )
+    conf["workflows"] = workflows
+    write_config(new_config=conf)
 
-    def init_script(self) -> NoReturn:
-        print("Creating new script")
-        lang_valid, language, runtime = self.__is_lang_valid(type=1)
-        if lang_valid:
-            with open(self.path, "w") as script:
-                shebang = f"#!/usr/bin/env {runtime}"
-                script.write(shebang)
-                script.close()
-            print("Created script skeleton at " + self.path)
 
-    def init_project(self) -> NoReturn:
-        print("Creating new script")
-        lang_valid, language, language_commands = self.__is_lang_valid(type=2)
-        if lang_valid:
-            print("Initiating new project in " + self.path)
-            self.__mkdircd()
-            for command in language_commands:
-                subprocess.run(shlex.split(command))
+def delete_workflow(name: str):
+    conf = configuration
+    workflows = conf["workflows"]
+    names = [wf["name"] for wf in workflows]
+    if name in names:
+        workflows.pop(names.index(name))
+    else:
+        print(name + " not a valid workflow. Run ptool -lw to see existing workflows.")
+    conf["workflows"] = workflows
+    write_config(new_config=conf)
+
+
+def init_script(path: str, runtime: str) -> NoReturn:
+    path = os.path.abspath(path)
+    with open(path, "w") as script:
+        shebang = f"#!/usr/bin/env {runtime}"
+        script.write(shebang)
+        script.close()
+    print("Created script skeleton at " + path)
+
+
+def init_project(path: str, workflow: str) -> NoReturn:
+    path = os.path.abspath(path)
+    names = [wf["name"] for wf in configuration["workflows"]]
+
+    mkdircd(path)
+    if workflow in names:
+        wf = configuration["workflows"][names.index(workflow)]
+        print("Initiating new project in " + path)
+        try:
+            if wf["extends"] in names:
+                print("Running " + wf["extends"] + " commands!")
+                for command in configuration["workflows"][names.index(wf["extends"])][
+                    "commands"
+                ]:
+                    subprocess.run(
+                        shlex.split(command),
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                    )
+
+        except:
+            pass
+
+        print("Running " + wf["name"] + " commands!")
+        for command in wf["commands"]:
+            subprocess.run(
+                shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+        
+        print('Done 🎉')
 
 
 def main():
-    types = ["script", "project"]
-    args = arguments()
+    args = parser.parse_args()
     if args.create != None and len(args.create) <= 3:
-        c_type, c_path, c_lang = args.create[0], args.create[1], args.create[2]
-        if args.create[0] in types:
-            if c_type == "script":
-                Helper(path=c_path, language=c_lang).init_script()
-            elif c_type == "project":
-                Helper(path=c_path, language=c_lang).init_project()
-
-            if args.license:
-                Helper(path=c_path, language=c_lang).append_license()
+        if args.create[0] == "script":
+            init_script(path=args.create[2], runtime=args.create[1])
+        elif args.create[0] == "project":
+            init_project(path=args.create[2], workflow=args.create[1])
         else:
-            sys.exit(f"{args.create[0]} is not a valid type")
-    else:
-        sys.exit(
-            "Not enough arguments passed.\nExample usage: ptool --create project hello"
-        )
+            sys.exit(
+                args.create[0] + "is not a valid type. Valid types: project, script"
+            )
+    elif args.append_license:
+        list_workflows()
+    elif args.list_workflows:
+        list_workflows()
+    elif args.add_workflow:
+        add_workflow()
+    elif args.delete_workflow != None and len(args.delete_workflow) >= 1:
+        delete_workflow(args.delete_workflow)
+    elif len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

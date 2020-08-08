@@ -33,6 +33,8 @@ if not os.path.exists(config_fpath):
     with open(config_fpath, 'w') as conf:
         conf.write(json.dumps({'workflows': ''}, indent=4))
 
+    subprocess.run(shlex.split(os.path.abspath(__file__) + ' -aw'))
+
 configuration = json.load(open(config_fpath))
 
 

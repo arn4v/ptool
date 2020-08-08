@@ -1,0 +1,40 @@
+{
+    "workflows": [
+        {
+            "name": "javascript",
+            "alias": "js",
+            "runtime": "node",
+            "commands": [
+                "yarn init -y"
+            ]
+        },
+        {
+            "name": "python",
+            "alias": "py",
+            "runtime": "python3",
+            "commands": [
+                "python3 -m virtualenv venv",
+                "venv/bin/pip install mypy black pipreqs",
+                "ptool --create script gman py"
+            ]
+        },
+        {
+            "name": "react",
+            "alias": "",
+            "extends": "javascript",
+            "commands": [
+                "yarn add react react-dom react-router",
+                "yarn add webpack webpack-cli @babel/core @babel/cli @babel/preset-env @babel/preset-react",
+                "yarn add typescript @types/node @types/react @types/react-dom"
+            ]
+        },
+        {
+            "name": "flutter",
+            "alias": "",
+            "extends": "",
+            "commands": [
+                "flutter create --org arnavgosain.com ."
+            ]
+        }
+    ]
+}

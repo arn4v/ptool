@@ -5,6 +5,7 @@ import json
 import os
 import platform
 import shlex
+import shutil
 import sys
 
 parser = argparse.ArgumentParser()
@@ -16,6 +17,7 @@ parser.add_argument(
     "-dw", "--delete-workflow", default=None, type=str, metavar="<workflow_name>"
 )
 parser.add_argument("-lw", "--list-workflows", action="store_true")
+parser.add_argument("--open-config", action="store_true")
 
 config_dir = os.path.join(
     os.environ["HOME"],
@@ -66,7 +68,19 @@ def add_workflow():
     conf = configuration
     workflows = conf["workflows"]
     new_workflow = dict()
-    new_workflow["name"] = input("Enter workflow name: ")
+    i = 0
+    while i < 3:
+        i += 1
+        name = input("Enter workflow name: ")
+        if len(name) > 0:
+            if len(name) <= 4:
+                print("Workflow name must be 4 or more characters. Try again.")
+                continue
+            else:
+                new_workflow["name"] = name
+                break
+    else:
+        sys.exit("No workflow name provided, exiting...")
 
     if len(configuration["workflows"]) >= 1:
         new_workflow["extends"] = input(
@@ -99,6 +113,13 @@ def delete_workflow(name: str):
         print(name + " not a valid workflow. Run ptool -lw to see existing workflows.")
     conf["workflows"] = workflows
     write_config(new_config=conf)
+
+
+def open_config():
+    if os.environ.get("EDITOR") != None:
+        os.system(shutil.which(os.environ["EDITOR"]) + " " + config_fpath)
+    else:
+        sys.exit("Please add $EDITOR in your system variables")
 
 
 def init_project(path: str, workflow: str):
@@ -144,6 +165,8 @@ def main():
         add_workflow()
     elif args.delete_workflow != None and len(args.delete_workflow) >= 1:
         delete_workflow(args.delete_workflow)
+    elif args.open_config:
+        open_config()
     elif len(sys.argv) == 1:
         parser.print_help(sys.stderr)
         sys.exit(1)

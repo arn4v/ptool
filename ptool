@@ -18,6 +18,7 @@ parser.add_argument(
     help="Run --list_workflows to get a list of your workflows.",
 )
 parser.add_argument("-p", "--path", type=str, default=None)
+parser.add_argument("--no-extend", action="store_true")
 parser.add_argument("--add-workflow", action="store_true")
 parser.add_argument(
     "--delete-workflow", type=str, default=None, metavar="workflow",
@@ -128,7 +129,7 @@ def open_config():
         sys.exit("Please add $EDITOR in your system variables")
 
 
-def exec_workflow(path: str, workflow: str):
+def exec_workflow(path: str, workflow: str, no_extend: bool):
     fpath = os.path.abspath(".") if path is None else os.path.abspath(path)
 
     if path is not None:
@@ -149,15 +150,18 @@ def exec_workflow(path: str, workflow: str):
 
         print("Initiating new project in " + fpath)
 
-        try:
-            if wf["extends"] in names:
-                print("Running " + wf["extends"] + " commands!")
-                for command in configuration["workflows"][names.index(wf["extends"])][
-                    "commands"
-                ]:
-                    os.system(command)
-        except:
-            pass
+        if not no_extend:
+            try:
+                if wf["extends"] in names:
+                    print("Running " + wf["extends"] + " commands!")
+                    for command in configuration["workflows"][
+                        names.index(wf["extends"])
+                    ]["commands"]:
+                        os.system(command)
+            except:
+                pass
+        else:
+            print("Not extending " + wf["extends"])
 
         print("Running " + wf["name"] + " commands!")
         for command in wf["commands"]:
@@ -174,7 +178,9 @@ def main():
         if args.workflow is None:
             sys.exit("Please specify workflow")
         else:
-            exec_workflow(path=args.path, workflow=args.workflow)
+            exec_workflow(
+                path=args.path, workflow=args.workflow, no_extend=args.no_extend
+            )
     elif args.list_workflows:
         list_workflows()
     elif args.add_workflow:

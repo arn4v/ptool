@@ -9,14 +9,21 @@ import shutil
 import sys
 
 parser = argparse.ArgumentParser()
-# ptool -c <script/project> <name/path> <lang>
-parser.add_argument("-c", "--create", metavar="N", nargs=3)
-parser.add_argument("-al", "--append-license", type=str, nargs=1)
-parser.add_argument("-aw", "--add-workflow", action="store_true")
+parser.add_argument("-c", "--create", action="store_true")
 parser.add_argument(
-    "-dw", "--delete-workflow", default=None, type=str, metavar="<workflow_name>"
+    "-w",
+    "--workflow",
+    type="str",
+    default=None,
+    metavar="<workflow>",
+    help="Run --list_workflows to get a list of your workflows.",
 )
-parser.add_argument("-lw", "--list-workflows", action="store_true")
+parser.add_argument("-p", "--path", type="str", default=None)
+parser.add_argument("--add-workflow", action="store_true")
+parser.add_argument(
+    "--delete-workflow", default=None, type=str, metavar="<workflow_name>"
+)
+parser.add_argument("--list-workflows", action="store_true")
 parser.add_argument("--open-config", action="store_true")
 
 config_dir = os.path.join(
@@ -122,26 +129,37 @@ def open_config():
         sys.exit("Please add $EDITOR in your system variables")
 
 
-def init_project(path: str, workflow: str):
-    path = os.path.abspath(path)
+def exec_workflow(path: str, workflow: str):
+    fpath = os.path.abspath(".") if path is None else os.path.abspath(path)
+
+    if path is not None:
+        mkdircd(fpath)
+
+    print("Current path: " + fpath)
+
     names = (
         [wf["name"] for wf in configuration["workflows"]]
         if len(configuration["workflows"]) >= 1
-        else sys.exit(1)
+        else sys.exit(
+            "Specify correct workflow. Use ptool --list-workflows to get a list of your workflows"
+        )
     )
-    mkdircd(path)
+
     if workflow in names:
         wf = configuration["workflows"][names.index(workflow)]
-        print("Initiating new project in " + path)
-        try:
-            if wf["extends"] in names:
-                print("Running " + wf["extends"] + " commands!")
-                for command in configuration["workflows"][names.index(wf["extends"])][
-                    "commands"
-                ]:
-                    os.system(command)
-        except:
-            pass
+
+        print("Initiating new project in " + fpath)
+
+        if path is not None:
+            try:
+                if wf["extends"] in names:
+                    print("Running " + wf["extends"] + " commands!")
+                    for command in configuration["workflows"][
+                        names.index(wf["extends"])
+                    ]["commands"]:
+                        os.system(command)
+            except:
+                pass
 
         print("Running " + wf["name"] + " commands!")
         for command in wf["commands"]:
@@ -152,13 +170,11 @@ def init_project(path: str, workflow: str):
 
 def main():
     args = parser.parse_args()
-    if args.create != None and len(args.create) <= 3:
-        if args.create[0] == "project":
-            init_project(path=args.create[2], workflow=args.create[1])
+    if args.create:
+        if args.workflow is None:
+            sys.exit("Please specify workflow")
         else:
-            sys.exit(
-                args.create[0] + "is not a valid type. Valid types: project, script",
-            )
+            exec_workflow(path=args.path, workflow=args.workflow)
     elif args.list_workflows:
         list_workflows()
     elif args.add_workflow:

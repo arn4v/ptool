@@ -80,12 +80,7 @@ def add_workflow():
         i += 1
         name = input("Enter workflow name: ")
         if len(name) > 0:
-            if len(name) <= 4:
-                print("Workflow name must be 4 or more characters. Try again.")
-                continue
-            else:
-                new_workflow["name"] = name
-                break
+            new_workflow["name"] = name
     else:
         sys.exit("No workflow name provided, exiting...")
 

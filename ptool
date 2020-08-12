@@ -81,6 +81,7 @@ def add_workflow():
         name = input("Enter workflow name: ")
         if len(name) > 0:
             new_workflow["name"] = name
+            break
     else:
         sys.exit("No workflow name provided, exiting...")
 

@@ -13,15 +13,14 @@ parser.add_argument("-c", "--create", action="store_true")
 parser.add_argument(
     "-w",
     "--workflow",
-    type="str",
-    default=None,
-    metavar="<workflow>",
+    type=str,
+    metavar="workflow",
     help="Run --list_workflows to get a list of your workflows.",
 )
-parser.add_argument("-p", "--path", type="str", default=None)
+parser.add_argument("-p", "--path", type=str, default=None)
 parser.add_argument("--add-workflow", action="store_true")
 parser.add_argument(
-    "--delete-workflow", default=None, type=str, metavar="<workflow_name>"
+    "--delete-workflow", type=str, default=None, metavar="workflow",
 )
 parser.add_argument("--list-workflows", action="store_true")
 parser.add_argument("--open-config", action="store_true")
@@ -91,7 +90,7 @@ def add_workflow():
 
     if len(configuration["workflows"]) >= 1:
         new_workflow["extends"] = input(
-            "Does this workflow extend a pre-existing workflow? (Leave it empty if not): "
+            "Does this workflow extend a pre-existing workflow? (Leave it empty if not): ",
         )
     else:
         new_workflow["extends"] = ""
@@ -141,7 +140,7 @@ def exec_workflow(path: str, workflow: str):
         [wf["name"] for wf in configuration["workflows"]]
         if len(configuration["workflows"]) >= 1
         else sys.exit(
-            "Specify correct workflow. Use ptool --list-workflows to get a list of your workflows"
+            "Specify correct workflow. Use ptool --list-workflows to get a list of your workflows",
         )
     )
 
@@ -150,22 +149,23 @@ def exec_workflow(path: str, workflow: str):
 
         print("Initiating new project in " + fpath)
 
-        if path is not None:
-            try:
-                if wf["extends"] in names:
-                    print("Running " + wf["extends"] + " commands!")
-                    for command in configuration["workflows"][
-                        names.index(wf["extends"])
-                    ]["commands"]:
-                        os.system(command)
-            except:
-                pass
+        try:
+            if wf["extends"] in names:
+                print("Running " + wf["extends"] + " commands!")
+                for command in configuration["workflows"][names.index(wf["extends"])][
+                    "commands"
+                ]:
+                    os.system(command)
+        except:
+            pass
 
         print("Running " + wf["name"] + " commands!")
         for command in wf["commands"]:
             os.system(command)
 
         print("Done 🎉")
+    else:
+        sys.exit(workflow + " is invalid.")
 
 
 def main():

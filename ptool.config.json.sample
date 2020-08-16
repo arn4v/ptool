@@ -1,40 +1,54 @@
 {
-    "workflows": [
-        {
-            "name": "javascript",
-            "alias": "js",
-            "runtime": "node",
-            "commands": [
-                "yarn init -y"
-            ]
-        },
-        {
-            "name": "python",
-            "alias": "py",
-            "runtime": "python3",
-            "commands": [
-                "python3 -m virtualenv venv",
-                "venv/bin/pip install mypy black pipreqs",
-                "ptool --create script gman py"
-            ]
-        },
-        {
-            "name": "react",
-            "alias": "",
-            "extends": "javascript",
-            "commands": [
-                "yarn add react react-dom react-router",
-                "yarn add webpack webpack-cli @babel/core @babel/cli @babel/preset-env @babel/preset-react",
-                "yarn add typescript @types/node @types/react @types/react-dom"
-            ]
-        },
-        {
-            "name": "flutter",
-            "alias": "",
-            "extends": "",
-            "commands": [
-                "flutter create --org arnavgosain.com ."
-            ]
-        }
-    ]
+  "workflows": [
+    {
+      "name": "javascript",
+      "extends": ["git"],
+      "commands": [
+        "npm init -y",
+        "echo node_modules >> .gitignore",
+        "wget \"https://github.com/github/gitignore/raw/master/Node.gitignore\" -O ./.gitignore"
+      ]
+    },
+    {
+      "name": "express",
+      "extends": ["javascript"],
+      "commands": [
+        "npm install express --save",
+        "npm install dotenv --save",
+        "npm install helmet cors --save"
+      ]
+    },
+    {
+      "name": "flutter",
+      "extends": [],
+      "commands": ["flutter create --org arnavgosain.com ."]
+    },
+    {
+      "name": "python",
+      "extends": ["git"],
+      "commands": [
+        "python3 -m virtualenv venv",
+        "./venv/bin/pip install black jedi neovim mypy pre-commit",
+        "wget \"https://github.com/github/gitignore/raw/master/Python.gitignore\" -O ./.gitignore"
+      ]
+    },
+    {
+      "name": "typescript",
+      "extends": ["javascript"],
+      "commands": [
+        "echo build >> .gitignore",
+        "npm install typescript @types/node --save-dev"
+      ]
+    },
+    {
+      "name": "git",
+      "extends": [],
+      "commands": [
+        "git init .",
+        "git commit --allow-empty \"Init project\"",
+        "git checkout -b main"
+      ]
+    }
+  ]
 }
+

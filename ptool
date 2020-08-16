@@ -172,7 +172,6 @@ def exec_workflow(path: str, workflow: str, no_extend: bool):
         else:
             print("Not extending " + ",".join(wf["extends"]))
 
-        sys.exit(1)
         print("Running " + wf["name"] + " commands!")
         for command in wf["commands"]:
             os.system(command)

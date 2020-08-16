@@ -50,6 +50,7 @@ if not os.path.exists(config_fpath):
             continue
 
 configuration = json.load(open(config_fpath))
+workflow_names = [wf["name"] for wf in configuration["workflows"]]
 
 
 def mkdircd(path: str):
@@ -132,49 +133,46 @@ def open_config():
         sys.exit("Please add $EDITOR in your system variables")
 
 
+executed_workflows = list()
+
+
+def exec_extensions(workflow: dict):
+    wf = workflow
+    for extension in wf["extends"]:
+        if extension not in executed_workflows:
+            extension = configuration["workflows"][workflow_names.index(extension)]
+            print("Running " + extension["name"] + " commands!")
+            for command in extension["commands"]:
+                os.system(command)
+            executed_workflows.append(extension)
+            if len(extension["extends"]) > 0:
+                exec_extensions(extension)
+
+
 def exec_workflow(path: str, workflow: str, no_extend: bool):
     fpath = os.path.abspath(".") if path is None else os.path.abspath(path)
 
     if path is not None:
-        mkdircd(fpath)
+        if os.path.exists(fpath) and os.path.isdir(fpath):
+            os.chdir(fpath)
+        else:
+            mkdircd(fpath)
 
     print("Current path: " + fpath)
 
-    names = (
-        [wf["name"] for wf in configuration["workflows"]]
-        if len(configuration["workflows"]) >= 1
-        else sys.exit(
-            "Specify correct workflow. Use ptool --list-workflows to get a list of your workflows",
-        )
-    )
-
-    if workflow in names:
-        wf = configuration["workflows"][names.index(workflow)]
-
+    if workflow in workflow_names:
         print("Initiating new project in " + fpath)
+        wf = configuration["workflows"][workflow_names.index(workflow)]
 
-        if not no_extend:
+        if no_extend is False:
             try:
-                if type(wf["extends"]) == list:
-                    for extension in workflow["extends"]:
-                        if extension in names:
-                            print("Running " + wf["extends"] + " commands!")
-                            for command in configuration["workflows"][
-                                names.index(wf["extends"])
-                            ]["commands"]:
-                                os.system(command)
-                elif type(wf["extends"]) == str:
-                    if wf["extends"] in names:
-                        print("Running " + wf["extends"] + " commands!")
-                        for command in configuration["workflows"][
-                            names.index(wf["extends"])
-                        ]["commands"]:
-                            os.system(command)
+                exec_extensions(workflow=wf)
             except:
                 pass
         else:
-            print("Not extending " + wf["extends"])
+            print("Not extending " + ",".join(wf["extends"]))
 
+        sys.exit(1)
         print("Running " + wf["name"] + " commands!")
         for command in wf["commands"]:
             os.system(command)

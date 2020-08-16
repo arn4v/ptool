@@ -9,7 +9,6 @@ import shutil
 import sys
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-c", "--create", action="store_true")
 parser.add_argument(
     "-w",
     "--workflow",
@@ -18,7 +17,7 @@ parser.add_argument(
     help="Run --list_workflows to get a list of your workflows.",
 )
 parser.add_argument("-p", "--path", type=str, default=None)
-parser.add_argument("--no-extend", action="store_true")
+parser.add_argument("-ne", "--no-extend", action="store_true")
 parser.add_argument("--add-workflow", action="store_true")
 parser.add_argument(
     "--delete-workflow", type=str, default=None, metavar="workflow",
@@ -37,7 +36,7 @@ if not os.path.exists(config_dir):
 
 if not os.path.exists(config_fpath):
     with open(config_fpath, "w") as conf:
-        conf.write(json.dumps({"workflows": []}, indent=4))
+        conf.write(json.dumps({"config_version": "0.2", "workflows": []}, indent=4))
 
     while True:
         add_wf = input("Do you want to add a new workflow now? [Y/n] ").casefold()
@@ -75,9 +74,8 @@ def add_workflow():
     conf = configuration
     workflows = conf["workflows"]
     new_workflow = dict()
-    i = 0
-    while i < 3:
-        i += 1
+
+    for i in range(3):
         name = input("Enter workflow name: ")
         if len(name) > 0:
             new_workflow["name"] = name
@@ -85,12 +83,21 @@ def add_workflow():
     else:
         sys.exit("No workflow name provided, exiting...")
 
-    if len(configuration["workflows"]) >= 1:
-        new_workflow["extends"] = input(
-            "Does this workflow extend a pre-existing workflow? (Leave it empty if not): ",
+    extends = list()
+    while (i := 0) < len(configuration["workflows"]):
+        message = (
+            "Does this workflow extend a pre-existing workflow? (Leave it empty if not): "
+            if i >= 1
+            else f"Do you want {new_workflow['name']} to extend another workflow? (Leave it empty if not): "
         )
-    else:
-        new_workflow["extends"] = ""
+        extension = input(message)
+        if len(configuration["workflows"]) >= 1 and len(extension) > 1:
+            extends.append(extension)
+        else:
+            break
+        i += 1
+
+    new_workflow["extends"] = extends
 
     workflow_commands = list()
     while True:
@@ -148,12 +155,21 @@ def exec_workflow(path: str, workflow: str, no_extend: bool):
 
         if not no_extend:
             try:
-                if wf["extends"] in names:
-                    print("Running " + wf["extends"] + " commands!")
-                    for command in configuration["workflows"][
-                        names.index(wf["extends"])
-                    ]["commands"]:
-                        os.system(command)
+                if type(wf["extends"]) == list:
+                    for extension in workflow["extends"]:
+                        if extension in names:
+                            print("Running " + wf["extends"] + " commands!")
+                            for command in configuration["workflows"][
+                                names.index(wf["extends"])
+                            ]["commands"]:
+                                os.system(command)
+                elif type(wf["extends"]) == str:
+                    if wf["extends"] in names:
+                        print("Running " + wf["extends"] + " commands!")
+                        for command in configuration["workflows"][
+                            names.index(wf["extends"])
+                        ]["commands"]:
+                            os.system(command)
             except:
                 pass
         else:
@@ -170,13 +186,8 @@ def exec_workflow(path: str, workflow: str, no_extend: bool):
 
 def main():
     args = parser.parse_args()
-    if args.create:
-        if args.workflow is None:
-            sys.exit("Please specify workflow")
-        else:
-            exec_workflow(
-                path=args.path, workflow=args.workflow, no_extend=args.no_extend
-            )
+    if args.workflow:
+        exec_workflow(path=args.path, workflow=args.workflow, no_extend=args.no_extend)
     elif args.list_workflows:
         list_workflows()
     elif args.add_workflow:

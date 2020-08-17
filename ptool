@@ -128,7 +128,8 @@ def delete_workflow(name: str):
 
 def open_config():
     if os.environ.get("EDITOR") != None:
-        os.system(shutil.which(os.environ["EDITOR"]) + " " + config_fpath)
+        editor_executable = shutil.which(os.environ["EDITOR"])
+        os.system(f'{editor_executable} "{config_fpath}"')
     else:
         sys.exit("Please add $EDITOR in your system variables")
 

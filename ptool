@@ -79,8 +79,12 @@ def add_workflow():
     for i in range(3):
         name = input("Enter workflow name: ")
         if len(name) > 0:
-            new_workflow["name"] = name
-            break
+            if name in workflow_names:
+                print(f"{name} is already an existing workflow. Try again:")
+                continue
+            else:
+                new_workflow["name"] = name
+                break
     else:
         sys.exit("No workflow name provided, exiting...")
 
@@ -107,7 +111,10 @@ def add_workflow():
             workflow_commands.append(command)
         else:
             break
-    new_workflow["commands"] = workflow_commands
+    if len(workflow_commands) >= 1:
+        new_workflow["commands"] = workflow_commands
+    else:
+        sys.exit("No commands provided, exiting...")
 
     workflows.append(new_workflow)
     conf["workflows"] = workflows
